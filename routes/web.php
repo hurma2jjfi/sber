@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
-
+use App\Http\Controllers\TestController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -21,3 +21,11 @@ Route::get('/download-csv', [ProductController::class, 'downloadCsv'])->name('do
 
 Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
 Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
+
+
+Route::get('/test', function () {
+    return view('test');
+})->name('test');
+
+
+Route::post('/api/token', [TestController::class, 'getToken']);

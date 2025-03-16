@@ -57,38 +57,70 @@ public function update(Request $request, $id)
     ]);
 
   
-    return redirect()->route('home')->with('success', 'Продукт успешно обновлен!');
+    return redirect()->route('home')->with('success', 'Продукт успешно обновлен');
 }
 
 
-    public function uploadCsv(Request $request)
+public function uploadCsv(Request $request)
 {
     if ($request->hasFile('csv_file')) {
         $file = $request->file('csv_file');
+        
+        // Проверка типа файла
+        $allowedExtensions = ['csv', 'txt'];
+        $extension = $file->getClientOriginalExtension();
+        
+        if (!in_array($extension, $allowedExtensions)) {
+            return redirect()->back()->withErrors(['error' => 'Разрешены только файлы CSV и TXT']);
+        }
+        
+        // Если тип файла допустим, продолжаем загрузку
         $path = $file->storeAs('uploads', $file->getClientOriginalName());
 
-      
-        $rows = array_map('str_getcsv', file(storage_path('app/' . $path)));
+        if ($extension === 'csv') {
+            $rows = array_map('str_getcsv', file(storage_path('app/' . $path)));
+        } elseif ($extension === 'txt') {
+            $rows = [];
+            $fileContent = file(storage_path('app/' . $path), FILE_IGNORE_NEW_LINES); // Удаляем символы перевода строки
+            foreach ($fileContent as $line) {
+                // Разделяем строку на название и описание
+                $parts = explode(' ', $line); // Используйте пробел в качестве разделителя
+                if (count($parts) >= 2) {
+                    $name = $parts[0];
+                    $description = implode(' ', array_slice($parts, 1)); // Объединяем остальные части в описание
+                    $rows[] = [$name, $description];
+                }
+            }
+        }
+
         foreach ($rows as $row) {
+            // Проверка длины строки
+            if (count($row) < 2) {
+                // Если строка слишком короткая, пропускаем ее
+                continue;
+            }
+            
             $product = new Product();
-            $product->name = $row[0];
-            $product->description = $row[1];
+            $product->name = trim($row[0]); // Удаляем пробелы
+            $product->description = trim($row[1]); // Удаляем пробелы
+            
             $product->save();
 
-        
             $response = $this->sendToGigaChat($product->description);
 
-    
             $product->quality_score = $response['score'] ?? 0; 
             $product->recommendations = json_encode($response['recommendations'] ?? 'Нет рекомендаций');
             $product->save();
         }
 
-        return redirect()->back()->with('success', 'Файл успешно загружен!');
+        return redirect()->back()->with('success', 'Файл успешно загружен');
     }
 
-    return redirect()->back()->withErrors(['error' => 'Пожалуйста, выберите CSV-файл!']);
+    return redirect()->back()->withErrors(['error' => 'Пожалуйста, выберите CSV-файл']);
 }
+
+
+
     
     public function downloadCsv()
     {
